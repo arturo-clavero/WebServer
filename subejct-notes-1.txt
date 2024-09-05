@@ -1,0 +1,281 @@
+﻿* Turn in files:
+Makefile, *.{h, hpp}, *.cpp, *.tpp, *.ipp, configuration files
+->*.ipp:
+Serves same purpose as .tpp but it also supports “inline” functions
+-> An inline function is a function that is expanded in line when it is called. When the inline function is called whole code of the inline function gets inserted or substituted at the point of the inline function call. This substitution is performed by the C++ compiler at compile time. An inline function may increase efficiency if it is small.
+        
+-> Configuration files: 
+Configuration files are files that define how the server should behave, allowing you to customize its operation without changing the actual code. 
+
+
+
+
+* External functs:
+execve, dup, dup2, pipe, strerror, gai_strerror, errno, dup, dup2, fork, socketpair, htons, htonl, ntohs, ntohl, select, poll, epoll (epoll_create, epoll_ctl, epoll_wait), kqueue (kqueue, kevent), socket, accept, listen, send, recv, chdir bind, connect, getaddrinfo, freeaddrinfo, setsockopt, getsockname, getprotobyname, fcntl, close, read, write, waitpid, kill, signal, access, stat, open, opendir, readdir and closedir.
+
+
+->gai_strerror:
+returns a text string describing an error value for the getaddrinfo() and getnameinfo() functions.
+
+
+
+
+->socketpair:
+Like socket, but creates 2 sockets with same domain, type and protocol.
+
+
+-> htons, htonl, ntohs, ntohl
+These functions are used to handle the differences in byte order (also known as "endianness") between different systems.
+Byte Order (Endianness)
+* Host Byte Order: This is the byte order used by your system's architecture. By running command <lscpu | grep "Byte Order"> we can see that school’s mac uses Little Endian, where the least significant byte is stored first.
+* Network Byte Order: The standard byte order for transmitting data over the internet is Big Endian, where the most significant byte is stored first
+Why Are These Functions Important?
+Consistency in Data Transmission: When data is sent over a network, it’s crucial that all systems agree on the byte order. These functions ensure that your data is correctly interpreted regardless of the underlying architecture of the systems involved.
+
+
+1. htons: 
+Converts a 16-bit unsigned integer from host byte order to network byte order.
+Example use: sending a 16-bit int (i.e port number)  to a network.
+
+
+2. ntohs:
+Converts a 16-bit unsigned integer from network byte order to host byte order.
+Example use: receiving a 16-bit int (i.e port number)  from a network.
+
+
+3. htonl:
+Converts a 32-bit unsigned integer from host byte order to network byte order.
+Example use: sending a 32-bit int (i.e IP address)  to a network.
+
+
+4. ntohl:
+Converts a 32-bit unsigned integer from network byte order to host byte order.
+Example use: receiving a 32-bit int (i.e IP address)  from a network.
+
+
+
+
+-> select, poll, epoll, kqueue
+ These functions are used to monitor multiple file descriptors (e.g., sockets, files) to see if any of them are ready for some I/O operation (like reading, writing, etc.). They do this in different ways…
+
+
+        -select: 
+Can only monitor a max of 1024 fds. 
+Iterates over the entire set of fds (inefficient with larger numbers).
+Level triggered notifications** only. 
+Easy API.
+
+
+        -poll:
+Can monitor unlimited fds. 
+Can dynamically allocate the list of file descriptors to monitor.
+Iterates over the entire set of fds.
+Level triggered notifications** only.
+Easy API.
+
+
+        -epoll:
+Can monitor unlimited fds.
+Uses a readiness notification mechanism, instead of iterating over the entire set of fds (efficient with larger numbers).
+Level triggered notifications** and edge-triggered notifications**.
+No portability, linux-only.
+Difficult API.
+
+
+        -kqueue:
+Similar to epoll but for BSD-based systems (can not use on linux).
+
+
+* Level triggered notifications
+ A notification is delivered as long as the condition is true, if an fd is ready to read it will keep notifying until you read from it. It's useful in scenarios where you want to ensure you handle every event without worrying about missing any notifications.
+
+
+* Edge triggered notifications
+A notification is delivered only when the a condition changes. You are notified only once when new data arrives, not repeatedly while the data remains unread. It is more efficient in high performance applications as it reduces the number of notifications but it requires careful management. 
+
+
+
+
+
+
+-> socket
+Creates an unbound socket in a communications domain, and return a file descriptor.
+1. Domain (or Address Family)
+The domain determines how the socket will interpret addresses and communicate with other sockets.
+AF_INET: This is used for IPv4 addresses. If you want to create a socket for communicating over an IPv4 network, you would use this.
+AF_INET6: This is used for IPv6 addresses.
+AF_UNIX: This is used for local communication within the same machine (using a file-based address system instead of an IP-based system).
+We will use IPv4 (AF_INET) as it is the most common, and most devices with ipv6 address will fall back to ipv4 if the server they are trying to reach does not support ipv6.
+2. Type
+The type specifies how the data will be transmitted. Common values include:
+* SOCK_STREAM: This indicates a stream-oriented socket (TCP). It provides reliable, connection-oriented communication. Data is read in a continuous stream.
+* SOCK_DGRAM: This indicates a datagram-oriented socket (UDP). It provides connectionless communication, where data is sent in discrete packets without guaranteed delivery.
+* SOCK_RAW: This indicates a raw socket, which allows direct sending and receiving of IP packets without any protocol-specific transport layer formatting.
+We will use TCP protocol (SOCK_STREAM), as it is the most common protocol used in web servers (Apache and NGNIX both use TCP) .
+3. Protocol
+Usually, this is set to 0 to automatically select the appropriate protocol for the given domain and type. However, you can specify it explicitly:
+* 0: Automatically chooses the default protocol based on the domain and type.
+* IPPROTO_TCP: Specifies TCP as the protocol.
+* IPPROTO_UDP: Specifies UDP as the protocol
+SOCK_STREAM type will have IPPROTO_TCP protocol by default, and SOCK_DGRAM type will have a IPPROTO_UDP protocol by deafult, so why is this argument necessary? SOCK_RAW type will not have a protocol by default so using 0 here will lead to undefined behavior. Also in some advanced networking scenarios, you might work with non-standard or custom protocols that require specific handling, which is why this argument is necessary.
+
+
+->socketpair:
+Like socket, but creates 2 sockets with same domain, type and protocol (but different fds).
+
+
+-> bind
+* When you create a socket, it is initially "unnamed" and does not have any local address assigned to it. bind() assigns a specific local address and port to this socket.
+* This local address and port combination is used by the operating system to route incoming packets to the correct socket. By binding a socket to a local address, you make the socket available to receive incoming data addressed to that address and port. For server applications, this is essential for accepting incoming connections from clients.
+* You can not bind the same socket to multiple addresses!
+* This function takes a pointer to a sockaddr structure.
+how to create a sockaddr structure:
+(always initialize struct #memset to 0)
+sin_family: Sets the address family (should be the same address family as the socket, so AF_INET). This ivalue s used internally by the operating system to know how to handle the socket. It is not transmitted over the network thus it does not need to be converted.
+sin_addr.s_addr: Sets the IP address. INADDR_ANY means the socket will listen on all available network interfaces. Can also be set to a specific IP address, but for webserver we want max accessibility. INADDR_ANY is a constant that represents a special ip address (typically  0.0.0.0). **This int needs to be converted to network byte order because it will be used by client.
+sin_port: Sets the port number. **This int needs to be converted to network byte order because it will be used by client.
+
+
+
+
+-> listen
+* Sets a socket to listen for incoming connection requests. These connection requests are queued up before they are accepted by the server.
+* Incomplete Connections: These are connections that have started the handshake process but have not completed it yet.
+* Completed Connections: These are connections that have completed the handshake and are waiting to be accepted by the server.
+Backlog Value:
+* Specifies Queue Size: The backlog parameter effectively controls the size of this queue. Max value is defined as SOMAXCONN constant.
+* System Behavior: If the backlog is too small, some clients may receive a "connection refused" error if they attempt to connect when the queue is full.
+* Limits: The system might limit the actual queue size based on the backlog value you provide and its own internal constraints.
+
+
+-> accept:
+* Extracts the first connection request from listening queue, creates a new socket, and returns its file descriptor.
+* The new socket has the same type, protocol, and address family as the original listening socket.
+* The new socket is used to communicate with the client, while the original socket continues to listen for additional incoming connections.
+* Argument address :  provides the ability to retrieve client address information into a sockaddr structure. If you don't need this information, you can pass nullptr.
+* Blocking Mode: accept() waits for a connection request to arrive if there are none available, pausing the program's execution. Sockets by default are in blocking mode.
+* Non-Blocking Mode: accept() returns immediately if no connections are available,  and set errno to EAGAIN or EWOULDBLOCK, allowing the program to continue executing and handle the situation as needed. You can use fnctl to make a socket non blocking.
+-> connect
+To connect to a server.
+When is this used?
+* Client -> Server:  establish a connection to the server, not our job but he client’s or web browser’s)
+* Server -> Server: share data, sync state and load distribution when multiple servers are established. 
+Arguments:
+* socket: fd of socket initiating the connection.
+* sockaddr: struct of destination address (client connecting to server, uses server’s address)
+Behavior:
+* If the socket is not bound, connect will bind it automatically.
+* Socket in Connection-Mode (like TCP):  tries to establish this connection.
+* Socket in Non-Connection-Mode (like UDP): sets the destination address for sending messages, but it doesn’t establish a full connection.
+* Socket in Blocking Mode: will wait until the connection is successfully made. If it takes too long, it will eventually fail and give up.
+* Socket in Non-Blocking Mode: won't wait. Instead, it will start the connection process and return immediately. The connection will finish in the background, and you can check later if it succeeded.
+
+
+
+
+-> send
+Initiate transmission of a message from the specified socket to its peer, and send a message only when the socket is “connected” (connect() success on destination and bind() listen() and accept() success on source).
+Arguments:
+* Buffer: store data to be sent (text, file, etc). Pass address of buffer.
+* Flags: optional settings that change how the data is sent. Send urgent data (MSG_OOB) or mark the end of a **record (MSG_EOR). No changes, set to 0.
+*a record refers to a unit of data or a message. For example, in protocols that handle streams of data, a record might be a complete piece of information or message that is processed as a whole.
+Behavior:
+* Message Length: The amount of data you want to send is specified by the length argument. If the message is too big for the network protocol (like TCP or UDP), the send() function will fail and nothing will be sent.
+* Blocking Mode (default): If the network is busy or there isn't enough space to send your data immediately, send() will wait (or "block") until it can send the data.
+* Non-Blocking Mode: If your socket is in non-blocking mode, send() will return immediately, even if it couldn't send the data right away. If there's no space to send the data, it will fail instead of waiting. You can use functions like select() poll() or epoll() to check when the socket is ready to send more data.
+* Return Value: If send() returns -1, it means there was an error in trying to send the data, but it only detects errors on the local machine (like if the network is down, or the socket was closed).
+* Successful Send Doesn't Guarantee Delivery: Just because send() returns successfully doesn’t mean the data was delivered to the other side. It only means the data was handed off to the network layer. If something goes wrong after that (like the connection drops), the data might not make it.
+
+
+
+
+-> recv
+Receives data from socket.
+Arguments:
+* Flags: 
+MSG_PEEK: This allows you to look at the incoming data without removing it from the queue. This means the next call to recv() will still retrieve the same data.
+MSG_OOB: This requests out-of-band data (special data sent outside the normal data stream), which is protocol-specific.
+MSG_WAITALL: This tells recv() to wait until the specified amount of data has been received. It can block until all requested data arrives, but it might return less data if an error occurs or if a signal is caught.
+Behavior:
+1. Connectionless Sockets (e.g., UDP):  retrieves a complete message in one go. If the message is too large to fit in the buffer, the excess data is discarded.
+2. Connection Sockets (e.g., TCP): data is treated as a continuous stream. recv() might return partial data if not all data is available yet. The MSG_WAITALL flag can be used to wait for the full amount of data specified.
+3. Blocking Mode: will wait (block) until data is available to read.
+4. Non-Blocking Mode: will return immediately if no data is available. It will set errno to EAGAIN or EWOULDBLOCK to indicate that no data was available at that moment.
+
+
+-> getaddrinfo
+Translate a hostname (like "example.com") and/or a service name (like "http") into a list of possible network addresses that can be used to attempt to create a connection.
+Arguments:
+* nodename: This is a pointer to a string containing a hostname or an IP address of the service you're trying to connect to. Null for local host.
+* servname: This is a pointer to a string specifying a service (e.g., a port number or a service name like "http"). Null for network addresses without specifying a particular service.
+* hints: This is a pointer to a struct addrinfo, which provides options to control the results (e.g., to request only IPv4 addresses or only TCP connections). You can set the following fields in hints:
+* ai_family: Specifies the protocol family (like AF_INET for IPv4, AF_INET6 for IPv6, or AF_UNSPEC for any).
+* ai_socktype: Specifies the socket type (like SOCK_STREAM for TCP or SOCK_DGRAM for UDP).
+* ai_protocol: Specifies the protocol (like IPPROTO_TCP for TCP or IPPROTO_UDP for UDP).
+* ai_flags: Controls behavior with flags like AI_PASSIVE (for listening sockets) or AI_CANONNAME (to return the canonical hostname).
+* res: It's a pointer to a pointer (struct addrinfo **res) where getaddrinfo() will store the resulting list of addresses. Iterate through the result (res->ai_next) to create sockets (sock_fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol), and try to connect (connect(sock_fd, res->ai_addr, res->ai_addrlen)).
+Behavior:
+* Allocates memory!
+
+
+        
+-> freeaddrinfo
+Frees memory allocated by getaddrinfo().
+
+
+
+
+-> setsockopt
+Configures options for a socket, such as enabling debugging, setting buffer sizes, timeouts, or specifying how data should be sent or received. Here’s a simplified breakdown of how it works:
+
+
+Arguments:
+* socket
+* level: The protocol level at which the option exists (e.g., socket level or TCP level).
+* option_name: The specific option you want to change (e.g., buffer size, timeout).
+* option_value: The value you want to assign to the option (e.g., an integer to enable/disable an option).
+
+
+Key options:
+* SO_REUSEADDR: Allows reuse of local addresses, useful for allowing multiple sockets to bind to the same port, without waiting for the previous connection to fully close. 
+Value: 1 (enabled) or 0 (disabled).
+* SO_KEEPALIVE: Keeps connections active by sending periodic checks to see if the other side is still available. Helps in detecting broken connections, which can be useful for maintaining long-lived connections and ensuring that idle connections are properly managed and closed.
+Value: 1 (enabled) or 0 (disabled)
+* SO_LINGER: Controls whether the socket should wait when closing if there’s still data left to be sent. Ensures that data in the buffer is sent before the socket is closed, which might be less critical for static file serving but is useful for ensuring that any data queued for transmission is not lost.
+Value: struct linger { int l_onoff; /* 0 = off, 1 = on*/ int l_linger; // timeout in seconds };
+* SO_RCVBUF/SO_SNDBUF: Sets the size of the receive/send buffer, which affects how much data can be buffered. Adjusting buffer sizes can affect performance. For large file transfers (uploads/downloads), increasing buffer sizes can help accommodate larger amounts and improve throughput (rate of successful transmission of data).
+ Value: Integer value (size in bytes).
+* SO_RCVTIMEO/SO_SNDTIMEO: Sets the timeout for receiving/sending data, preventing the program from hanging if the other side is unresponsive. 
+Value: struct timeval { long tv_sec; long tv_usec;};
+* SO_BROADCAST: Enables permission to send broadcast messages on the socket.
+Value: 1 (enabled) or 0 (disabled).
+* SO_OOBINLINE : When enabled, out-of-band data is placed in the normal data stream.  It's more relevant for protocols that use urgent data, which is not common for HTTP.
+        Value: 1 (enabled) or 0 (disabled)
+* SO_RCVLOWAT/SO_SNDLOWAT: Sets the minimum amount of data required before a recv()/ send()  operation will complete.These can be adjusted to control the flow of data. For large file transfers, you might set a higher value to optimize performance. Value: Integer value (minimum number of bytes)
+* SO_DONTROUTE: Bypasses the routing table for outgoing messages, sending directly to the interface. For a typical web server, this option is rarely needed because the standard routing mechanisms are designed to efficiently handle data transmission across networks. Value: 1 (enabled) or 0 (disabled)
+   * TCP_NODELAY: Disables Nagle’s algorithm, which buffers small packets to be sent together to improve network efficiency (enabled by default for better performance, but disabling it can reduce latency for small messages). 
+Nagle’s algorithm is designed to improve network efficiency, particularly in environments with many small packets. It does this by: 
+   * Combining Small Packets: It waits to send small packets of data until it has enough data to fill a larger packet or until it has to send a packet anyway (e.g., because the data is "urgent"). This reduces the total number of packets sent over the network.
+   * Reducing Overhead: By sending fewer, larger packets, Nagle's algorithm helps to minimize the overhead associated with each packet (e.g., headers).
+When you disable Nagle’s algorithm with TCP_NODELAY, packets are sent immediately without waiting. This can reduce latency because data is sent right away, which is important for applications where timely delivery of small amounts of data is crucial.
+   * Increased Packet Overhead: Disabling Nagle’s algorithm can lead to more packets being sent over the network, which increases overhead. Each packet carries its own header, which can add to the total amount of data transmitted and reduce overall network efficiency.
+Value: 1 (enabled) or 0 (disabled).
+
+
+-> getsockname
+ Retrieves the local address to which a socket is bound in a sockaddr struct.
+
+
+-> getprotobyname
+Typically used to obtain protocol numbers (e.g., IPPROTO_TCP) from protocol names (e.g., "tcp").
+
+
+
+
+
+
+
+
+
+
+Edit google doc here
